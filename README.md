@@ -1,3 +1,3 @@
-# Proiect-sincretic-1-Nanu-
+# Proiect sincretic 1 (Nanu)
 
       Iordache Elena-Alexandra & Jurj Ana
