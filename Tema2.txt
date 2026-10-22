@@ -1,0 +1,105 @@
+//TEMĂ 2 - Iordache Elena-Alexandra & Jurj Ana 
+
+#include <LiquidCrystal.h>
+
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2); //RS, E, D4, D5, D6, D7
+
+//ora inițială
+volatile byte ore = 18;
+volatile byte minute = 1;
+volatile byte secunde = 50;
+
+volatile bool actualizare = false;   //devine true când trece o secundă
+
+//ADC
+void initADC() 
+{
+  ADMUX  = (1 << REFS0);      //referință 5V, canal A0                                         
+  ADCSRA = (1 << ADEN) | (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0); // ADC pornit, prescaler 128
+} 
+
+int citesteADC() 
+{
+  ADCSRA |= (1 << ADSC);    //pornesc conversia      
+  while (ADCSRA & (1 << ADSC));    //aștept să se termine
+  return ADC;                      
+}
+
+//Timer1
+void initTimer1() 
+{
+  cli();                           
+  TCCR1A = 0;
+  TCCR1B = 0;
+  TCNT1  = 0;
+  OCR1A  = 62499;    // 16MHz / 256 = 62500 -> 1 secundă         
+  TCCR1B |= (1 << WGM12);    //mod CTC     
+  TCCR1B |= (1 << CS12);     //prescaler 256      
+  TIMSK1 |= (1 << OCIE1A);   //întrerupere la comparație      
+  sei();                     //pornesc întreruperile      
+}
+
+//apelez la fiecare secundă
+ISR(TIMER1_COMPA_vect) 
+{
+  secunde++;
+  if (secunde == 60) 
+  {
+    secunde = 0;
+    minute++;
+    if (minute == 60) 
+    {
+      minute = 0;
+      ore++;
+      if (ore == 24) ore = 0;
+    }
+  }
+  actualizare = true;
+}
+
+void setup() 
+{
+  lcd.begin(16, 2);
+  initADC();
+  initTimer1();
+}
+
+void loop() 
+{
+  if (actualizare) 
+  {
+    actualizare = false;
+
+     // copiez ora (întreruperile oprite)
+    cli();
+    byte h = ore;
+    byte m = minute;
+    byte s = secunde;
+    sei();
+    
+	//temperatura
+    int valoare = citesteADC();
+    float tensiune = valoare * 5.0 / 1023.0;
+    float temperatura = (tensiune - 0.5) * 100.0; // formula pentru TMP36 din Tinkercad   
+    		//pentru LM35 real ar fi: tensiune * 100
+    
+     // rândul 1 - temperatura
+    lcd.setCursor(0, 0);
+    lcd.print("Temp = ");
+    lcd.print(temperatura, 0);
+    lcd.print((char)223);   // simbolul de grad     
+    lcd.print("C   ");
+
+    // rândul 2 - ora
+    lcd.setCursor(0, 1);
+    lcd.print("Ora ");
+    if (h < 10) lcd.print('0');
+    lcd.print(h);
+    lcd.print(':');
+    if (m < 10) lcd.print('0');
+    lcd.print(m);
+    lcd.print(':');
+    if (s < 10) lcd.print('0');
+    lcd.print(s);
+  }
+}
